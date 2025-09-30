@@ -132,7 +132,8 @@
 /lang-segment-anything/assets
 /lang-segment-anything/assets/outputs
 /lang-segment-anything/filter_small_mask
-/lang-segment-anything/lang_sam
+/lang-segment-anything/lang_sam/models
+/lang-segment-anything/lang_sam/__pycache__
 /lang-segment-anything/output
 
 
@@ -144,6 +145,6 @@
 /depth_pro/highlight
 /depth_pro/hughline
 /depth_pro/langsam_depth
-/depth_pro/ml-depth-pro
+/depth_pro/ml-depth-pro/checkpoints
 /depth_pro/parallel_lines
 /depth_pro/result
