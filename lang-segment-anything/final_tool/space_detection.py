@@ -2,6 +2,8 @@
 import os
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import sys
+import logging
+from pathlib import Path
 # 현재 스크립트 위치의 상위 폴더를 경로에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -9,54 +11,58 @@ from PIL import Image, ImageDraw
 import numpy as np
 from lang_sam import LangSAM
 import random
-import os
 from scipy import ndimage
 import cv2
 import json
 import datetime
 
-# 상수 정의
-MASK_SIZE_THRESHOLD = 5000  # 마스크 크기 임계값 (픽셀 수)
-MIN_COMPONENT_SIZE = 150    # 최소 연결 요소 크기
-VARIANCE_THRESHOLD = 95000  # 좌표 분산 임계값
-DISTANCE_THRESHOLD = 30     # 아이스크림 디스플레이 병합을 위한 거리 임계값
+from config import (
+    MASK_SIZE_THRESHOLD,
+    MIN_COMPONENT_SIZE,
+    VARIANCE_THRESHOLD,
+    DISTANCE_THRESHOLD,
+    OVERLAP_CLUSTER_THRESHOLD,
+)
+
+logger = logging.getLogger(__name__)
 
 # 경로 설정
-BASE_DIR = "./CapstoneD/Capstone_Final/lang-segment-anything"
-ASSET_DIR = f"{BASE_DIR}/assets/space_data"
-OUTPUT_DIR = f"{BASE_DIR}/output/final"
-DEPTH_DIR = f"{ASSET_DIR}/depth_map"
+_SCRIPT_DIR = Path(__file__).parent
+BASE_DIR = _SCRIPT_DIR.parent.parent / "lang-segment-anything"
+ASSET_DIR = BASE_DIR / "assets" / "space_data"
+OUTPUT_DIR = BASE_DIR / "output" / "final"
+DEPTH_DIR = ASSET_DIR / "depth_map"
 
 # 출력 디렉토리 구조
 OUTPUT_DIRS = [
-    f"{OUTPUT_DIR}/overlay",
-    f"{OUTPUT_DIR}/overlay_remove",
-    f"{OUTPUT_DIR}/mask_only/display",
-    f"{OUTPUT_DIR}/mask_only/floor",
-    f"{OUTPUT_DIR}/mask_only/filtered",
-    f"{OUTPUT_DIR}/mask_only/non_overlap",
-    f"{OUTPUT_DIR}/mask_only/top3_masks",
-    f"{OUTPUT_DIR}/mask_only/classified_masks",
-    f"{OUTPUT_DIR}/mask_only/contour_masks",
-    f"{OUTPUT_DIR}/json"
+    OUTPUT_DIR / "overlay",
+    OUTPUT_DIR / "overlay_remove",
+    OUTPUT_DIR / "mask_only" / "display",
+    OUTPUT_DIR / "mask_only" / "floor",
+    OUTPUT_DIR / "mask_only" / "filtered",
+    OUTPUT_DIR / "mask_only" / "non_overlap",
+    OUTPUT_DIR / "mask_only" / "top3_masks",
+    OUTPUT_DIR / "mask_only" / "classified_masks",
+    OUTPUT_DIR / "mask_only" / "contour_masks",
+    OUTPUT_DIR / "json",
 ]
 
 def setup_directories():
     """필요한 모든 디렉토리 생성"""
     for directory in OUTPUT_DIRS:
-        os.makedirs(directory, exist_ok=True)
+        Path(directory).mkdir(parents=True, exist_ok=True)
 
 def check_depth_folder():
     """Depth 폴더 내용 확인 (디버깅용)"""
-    print("Checking depth folder contents:")
-    if os.path.exists(DEPTH_DIR):
-        depth_files = os.listdir(DEPTH_DIR)
+    logger.info("Checking depth folder contents:")
+    if DEPTH_DIR.exists():
+        depth_files = list(DEPTH_DIR.iterdir())
         for f in depth_files[:5]:  # 처음 5개 파일만 출력
-            print(f"- {f}")
+            logger.info(f"- {f.name}")
         if len(depth_files) > 5:
-            print(f"... and {len(depth_files) - 5} more files")
+            logger.info(f"... and {len(depth_files) - 5} more files")
     else:
-        print(f"Depth folder not found: {DEPTH_DIR}")
+        logger.warning(f"Depth folder not found: {DEPTH_DIR}")
 
 def compute_overlap_ratio(mask1, mask2):
     """두 마스크 간의 겹치는 비율을 계산"""
@@ -122,21 +128,21 @@ def cluster_overlapping_masks(mask_list, threshold=0.9):
 def calculate_avg_depth(mask, depth_image):
     """마스크 영역의 평균 depth 값을 계산"""
     if depth_image is None:
-        print("Warning: No depth image available for calculation")
+        logger.warning("No depth image available for calculation")
         return 0.0
-    
+
     # 마스크가 True인 부분의 depth 값만 추출
     masked_depth = depth_image[mask]
-    
+
     # 디버그 정보 출력
     if len(masked_depth) > 0:
-        print(f"Mask depth values - min: {masked_depth.min():.4f}, max: {masked_depth.max():.4f}, mean: {np.mean(masked_depth):.4f}")
-    
+        logger.debug(f"Mask depth values - min: {masked_depth.min():.4f}, max: {masked_depth.max():.4f}, mean: {np.mean(masked_depth):.4f}")
+
     # 평균 계산 (값이 없을 경우 0 반환)
     if len(masked_depth) == 0:
-        print("Warning: No valid depth pixels in mask")
+        logger.warning("No valid depth pixels in mask")
         return 0.0
-    
+
     return np.mean(masked_depth)
 
 def calculate_mask_centroid(mask):
@@ -162,33 +168,34 @@ def create_contour_mask(mask):
     contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     if not contours:
-        print("Warning: No contour found for mask")
+        logger.warning("No contour found for mask")
         return mask.copy()
-    
+
     # 모든 컨투어 점들을 하나의 배열로 합치기
     all_points = np.vstack([contour.reshape(-1, 2) for contour in contours])
-    
+
     # 모든 점들을 포함하는 볼록 껍질(Convex Hull) 찾기
     if len(all_points) > 0:
         hull = cv2.convexHull(all_points)
-        
+
         # 빈 이미지에 컨투어 그리기
         contour_mask = np.zeros_like(mask, dtype=np.uint8)
         cv2.fillPoly(contour_mask, [hull], 1)
-        
+
         # 디버그 출력 추가
         pixels_in_contour = np.sum(contour_mask)
-        print(f"Combined contour created with {pixels_in_contour} pixels, enclosing {len(contours)} individual contours")
-        
+        logger.debug(f"Combined contour created with {pixels_in_contour} pixels, enclosing {len(contours)} individual contours")
+
         # 불리언 배열로 변환하여 반환
         return contour_mask.astype(np.bool_)
     else:
-        print("Warning: No valid points found for convex hull")
+        logger.warning("No valid points found for convex hull")
         return mask.copy()
 
 def save_mask_info_to_json(image_index, classified_masks, json_folder):
     """분류된 마스크 정보를 JSON 파일로 저장"""
-    json_path = os.path.join(json_folder, f"mask_info_test{image_index}.json")
+    json_folder = Path(json_folder)
+    json_path = json_folder / f"mask_info_test{image_index}.json"
     
     # 마스크 설명 매핑
     mask_descriptions = {
@@ -238,30 +245,30 @@ def save_mask_info_to_json(image_index, classified_masks, json_folder):
     # JSON 파일로 저장
     with open(json_path, 'w', encoding='utf-8') as file:
         json.dump(json_data, file, indent=4)
-    
-    print(f"마스크 정보가 JSON 파일에 저장되었습니다: {json_path}")
-    
+
+    logger.info(f"마스크 정보가 JSON 파일에 저장되었습니다: {json_path}")
+
     # 모든 마스크 정보를 하나의 통합 JSON 파일에도 추가
-    combined_json_path = os.path.join(json_folder, "all_masks_info.json")
-    
+    combined_json_path = json_folder / "all_masks_info.json"
+
     # 파일이 존재하는지 확인하고, 존재하면 읽어오기
     all_data = []
-    if os.path.isfile(combined_json_path):
+    if combined_json_path.is_file():
         try:
             with open(combined_json_path, 'r', encoding='utf-8') as file:
                 all_data = json.load(file)
         except json.JSONDecodeError:
-            print(f"통합 JSON 파일을 읽는 데 실패했습니다. 새 파일을 생성합니다.")
+            logger.warning("통합 JSON 파일을 읽는 데 실패했습니다. 새 파일을 생성합니다.")
             all_data = []
-    
+
     # 현재 이미지 데이터 추가
     all_data.append(json_data)
-    
+
     # 업데이트된 데이터를 파일에 쓰기
     with open(combined_json_path, 'w', encoding='utf-8') as file:
         json.dump(all_data, file, indent=4)
-    
-    print(f"마스크 정보가 통합 JSON 파일에 추가되었습니다: {combined_json_path}")
+
+    logger.info(f"마스크 정보가 통합 JSON 파일에 추가되었습니다: {combined_json_path}")
 
 def calculate_mask_variance(mask):
     """마스크의 좌표 분산을 계산"""
@@ -279,7 +286,7 @@ def calculate_mask_variance(mask):
     # x, y 분산의 합을 반환 (총 분산)
     total_variance = x_variance + y_variance
     
-    print(f"마스크 좌표 분산: x_var={x_variance:.2f}, y_var={y_variance:.2f}, total={total_variance:.2f}")
+    logger.debug(f"마스크 좌표 분산: x_var={x_variance:.2f}, y_var={y_variance:.2f}, total={total_variance:.2f}")
     
     return total_variance
 
