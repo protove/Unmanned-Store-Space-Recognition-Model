@@ -1,0 +1,65 @@
+# ────────────────────────────────────────────────────────────────────────────
+# Stage 2 – LangSAM space-detection service
+#
+# Reads  : /data/input/       (원본 이미지  test1.png … testN.png)
+# Reads  : /data/depth_maps/  (DepthPro 출력 NPY 파일)
+# Writes : /data/output/      (마스크, 오버레이, JSON)
+#
+# 환경변수 (docker-compose 또는 -e 플래그로 덮어쓸 수 있음):
+#   INPUT_IMAGE_DIR  – 원본 이미지 디렉터리  (기본: /data/input)
+#   DEPTH_MAP_DIR    – 깊이 맵 디렉터리      (기본: /data/depth_maps)
+#   OUTPUT_DIR       – 결과 저장 디렉터리    (기본: /data/output)
+#   SPACE_IMAGE_COUNT– 처리할 이미지 수      (기본: 3)
+# ────────────────────────────────────────────────────────────────────────────
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    # HuggingFace 모델 캐시를 볼륨으로 유지
+    HF_HOME=/data/hf_cache \
+    TORCH_HOME=/data/torch_cache
+
+# ── 시스템 패키지 ──────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.10 python3.10-dev python3-pip \
+        git \
+        # OpenCV headless 의존성
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        libsm6 \
+        libxrender1 \
+        libxext6 \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
+    && update-alternatives --install /usr/bin/pip    pip    /usr/bin/pip3    1
+
+# ── PyTorch (CUDA 11.8) ────────────────────────────────────────────────────
+RUN pip install --index-url https://download.pytorch.org/whl/cu118 \
+        torch>=2.0.0 \
+        torchvision>=0.15.0
+
+# ── SAM2 (Meta) – GitHub에서 설치 ─────────────────────────────────────────
+RUN pip install \
+        "git+https://github.com/facebookresearch/segment-anything-2.git"
+
+# ── Python 의존성 ──────────────────────────────────────────────────────────
+COPY requirements.txt /app/requirements.txt
+RUN pip install -r /app/requirements.txt
+
+# opencv-python은 헤드리스 버전으로 교체 (서버 환경)
+RUN pip install --force-reinstall opencv-python-headless
+
+# ── 프로젝트 소스 복사 ─────────────────────────────────────────────────────
+COPY lang-segment-anything/ /app/lang-segment-anything/
+
+# ── 기본 경로 환경변수 설정 ────────────────────────────────────────────────
+ENV INPUT_IMAGE_DIR=/data/input \
+    DEPTH_MAP_DIR=/data/depth_maps \
+    OUTPUT_DIR=/data/output \
+    SPACE_IMAGE_COUNT=3
+
+WORKDIR /app/lang-segment-anything/final_tool
+
+ENTRYPOINT ["python", "space_detection.py"]

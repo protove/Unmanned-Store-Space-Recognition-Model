@@ -1,14 +1,24 @@
 """Central configuration for Space Detection pipeline."""
+import os
 from pathlib import Path
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 PROJECT_ROOT = BASE_DIR.parent.parent
 
-# Override these via environment variables for portability
-INPUT_IMAGE_DIR = BASE_DIR / "assets" / "images"
-DEPTH_MAP_DIR = BASE_DIR / "assets" / "depth_maps"
-OUTPUT_DIR = BASE_DIR / "output"
+# Default paths (relative to the lang-segment-anything root)
+_LANG_ROOT = PROJECT_ROOT / "lang-segment-anything"
+_DEFAULT_INPUT  = _LANG_ROOT / "assets" / "space_data"
+_DEFAULT_DEPTH  = _DEFAULT_INPUT / "depth_map"
+_DEFAULT_OUTPUT = _LANG_ROOT / "output" / "final"
+
+# All three can be overridden via environment variables (used by Docker pipeline)
+INPUT_IMAGE_DIR = Path(os.environ.get("INPUT_IMAGE_DIR", str(_DEFAULT_INPUT)))
+DEPTH_MAP_DIR   = Path(os.environ.get("DEPTH_MAP_DIR",   str(_DEFAULT_DEPTH)))
+OUTPUT_DIR      = Path(os.environ.get("OUTPUT_DIR",      str(_DEFAULT_OUTPUT)))
+
+# Number of test images to process (test1.png … testN.png)
+SPACE_IMAGE_COUNT = int(os.environ.get("SPACE_IMAGE_COUNT", "3"))
 
 # ─── Detection Thresholds ─────────────────────────────────────────────────────
 MASK_SIZE_THRESHOLD = 5000       # Minimum mask area in pixels

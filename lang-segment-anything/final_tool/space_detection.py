@@ -22,6 +22,10 @@ from config import (
     VARIANCE_THRESHOLD,
     DISTANCE_THRESHOLD,
     OVERLAP_CLUSTER_THRESHOLD,
+    INPUT_IMAGE_DIR,
+    DEPTH_MAP_DIR,
+    OUTPUT_DIR,
+    SPACE_IMAGE_COUNT,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,12 +41,9 @@ def _fill_mask_on_draw(mask: np.ndarray, color: tuple, *draw_objs) -> None:
         draw_obj.point(xy_list, fill=color)
 
 
-# 경로 설정
-_SCRIPT_DIR = Path(__file__).parent
-BASE_DIR = _SCRIPT_DIR.parent.parent / "lang-segment-anything"
-ASSET_DIR = BASE_DIR / "assets" / "space_data"
-OUTPUT_DIR = BASE_DIR / "output" / "final"
-DEPTH_DIR = ASSET_DIR / "depth_map"
+# 경로 설정 — 환경변수 또는 config.py 값 사용 (Docker 파이프라인 호환)
+ASSET_DIR = INPUT_IMAGE_DIR
+DEPTH_DIR = DEPTH_MAP_DIR
 
 # 출력 디렉토리 구조
 OUTPUT_DIRS = [
@@ -1034,8 +1035,8 @@ def main():
     # 2. 모델 초기화
     model = LangSAM()
     
-    # 3. 이미지 인덱스 설정
-    image_indices = list(range(1, 4))  # test1.png, test2.png
+    # 3. 이미지 인덱스 설정 (SPACE_IMAGE_COUNT 환경변수로 제어 가능)
+    image_indices = list(range(1, SPACE_IMAGE_COUNT + 1))
     
     # 4. 첫 번째 단계: 바닥 마스크 생성
     floor_masks_by_image = {}
