@@ -1,0 +1,102 @@
+# ============================================================================
+# Unmanned Store Space Recognition – Docker Compose Pipeline
+#
+# 파이프라인 순서:
+#   1. depthpro  : 원본 이미지 → 깊이 맵 (*.npy / *.png)
+#   2. langsam   : 원본 이미지 + 깊이 맵 → 마스크 / 오버레이 / JSON
+#
+# 사용법:
+#   ./pipeline.sh                    # 기본 실행 (data/ 하위 디렉터리 사용)
+#   docker compose up --build        # 직접 실행
+#
+# 호스트 디렉터리 구조:
+#   data/
+#     input/          ← test1.png, test2.png, test3.png 등 원본 이미지
+#     checkpoints/    ← depth_pro.pt (수동 다운로드 필요)
+#     output/         ← 최종 결과물 (자동 생성)
+#     hf_cache/       ← HuggingFace 모델 캐시 (자동 생성)
+#     torch_cache/    ← Torch 모델 캐시 (자동 생성)
+# ============================================================================
+
+services:
+
+  # ── Stage 1: Apple DepthPro ──────────────────────────────────────────────
+  depthpro:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.depthpro
+    image: unmanned-store/depthpro:latest
+
+    # GPU 설정 (NVIDIA Container Toolkit 필요)
+    # GPU가 없는 경우 아래 deploy 블록을 제거하면 CPU로 동작함
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+    volumes:
+      # 원본 이미지 (읽기 전용)
+      - ./data/input:/data/input:ro
+      # DepthPro 체크포인트 (읽기 전용)
+      - ./data/checkpoints:/data/checkpoints:ro
+      # 깊이 맵 출력 → Stage 2에서 읽음 (Docker 관리 볼륨)
+      - depth_shared:/data/depth_maps
+
+    # 실패 시 재시작 없음 (파이프라인이므로 한 번만 실행)
+    restart: "no"
+
+  # ── Stage 2: LangSAM (GroundingDINO + SAM2) ──────────────────────────────
+  langsam:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.langsam
+    image: unmanned-store/langsam:latest
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # 경로 설정 (Dockerfile ENV 기본값과 일치; 필요 시 여기서 덮어쓸 수 있음)
+      - INPUT_IMAGE_DIR=/data/input
+      - DEPTH_MAP_DIR=/data/depth_maps
+      - OUTPUT_DIR=/data/output
+      # 처리할 이미지 수 (test1.png … testN.png)
+      - SPACE_IMAGE_COUNT=${SPACE_IMAGE_COUNT:-3}
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+    volumes:
+      # 원본 이미지 (읽기 전용)
+      - ./data/input:/data/input:ro
+      # DepthPro가 생성한 깊이 맵 (읽기 전용)
+      - depth_shared:/data/depth_maps:ro
+      # 최종 결과 출력
+      - ./data/output:/data/output
+      # HuggingFace / Torch 모델 캐시 (재실행 시 재다운로드 방지)
+      - ./data/hf_cache:/data/hf_cache
+      - ./data/torch_cache:/data/torch_cache
+
+    # depthpro가 정상 완료된 후에만 시작
+    depends_on:
+      depthpro:
+        condition: service_completed_successfully
+
+    restart: "no"
+
+# ── 공유 볼륨 (Stage 1 출력 → Stage 2 입력) ─────────────────────────────────
+volumes:
+  depth_shared:
+    driver: local
