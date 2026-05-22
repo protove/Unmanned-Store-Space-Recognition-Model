@@ -2,7 +2,9 @@
 
 > DepthPro와 LangSAM을 연결해 RGB 이미지에서 매장 공간을 인식하는 2단계 AI pipeline 프로젝트
 
-![무인 매장 공간 인식 웹 화면](docs/readme-assets/website.png)
+<p align="center">
+  <img src="docs/readme-assets/website.png" alt="무인 매장 공간 인식 웹 화면" width="900" />
+</p>
 
 ## 프로젝트 개요
 
@@ -70,11 +72,15 @@ flowchart LR
 
 ### 입력 이미지
 
-![공간 인식 입력 이미지](docs/readme-assets/before-test1.jpg)
+<p align="center">
+  <img src="docs/readme-assets/before-test1.jpg" alt="공간 인식 pipeline에 입력한 무인 매장 이미지" width="760" />
+</p>
 
 ### 결과 이미지
 
-![공간 인식 결과 이미지](docs/readme-assets/after-test1.png)
+<p align="center">
+  <img src="docs/readme-assets/after-test1.png" alt="DepthPro와 LangSAM pipeline으로 생성한 공간 인식 결과 이미지" width="760" />
+</p>
 
 ## 문제 해결 과정
 
@@ -108,7 +114,11 @@ chmod +x pipeline.sh
 ./pipeline.sh
 ```
 
-DepthPro checkpoint와 입력 이미지 준비가 필요합니다.
+실행 전에는 `data/input/`에 `test1.png`, `test2.png` 형식의 입력 이미지를 두고, `data/checkpoints/depth_pro.pt` 위치에 DepthPro checkpoint를 준비합니다. `pipeline.sh`는 checkpoint가 없을 때 DepthPro 모델 다운로드를 안내합니다.
+
+LangSAM 단계에서는 SAM2와 GroundingDINO 계열 dependency가 사용됩니다. Docker 실행 시 `docker/Dockerfile.langsam`이 SAM2를 설치하고, HuggingFace/Torch 모델 파일은 `data/hf_cache`와 `data/torch_cache`에 캐시되도록 구성되어 있습니다. 첫 실행에서는 모델 다운로드와 GPU 초기화 때문에 시간이 걸릴 수 있습니다.
+
+Docker를 사용하지 않고 직접 실행하는 경우에는 `README_SETUP.md`의 안내처럼 `install_sam2.sh`를 실행해 SAM2를 먼저 설치해야 합니다.
 
 ## 관련 링크
 
