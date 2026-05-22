@@ -1,42 +1,42 @@
-﻿# Unmanned Store Space Recognition Model
+# Unmanned Store Space Recognition Model
 
-> DepthPro? LangSAM???곌껐??RGB ?대?吏?먯꽌 留ㅼ옣 怨듦컙???몄떇?섎뒗 2?④퀎 AI pipeline ?꾨줈?앺듃
+> DepthPro와 LangSAM을 연결해 RGB 이미지에서 매장 공간을 인식하는 2단계 AI pipeline 프로젝트
 
-![臾댁씤 留ㅼ옣 怨듦컙 ?몄떇 ???붾㈃](docs/readme-assets/website.png)
+![무인 매장 공간 인식 웹 화면](docs/readme-assets/website.png)
 
-## ?꾨줈?앺듃 媛쒖슂
+## 프로젝트 개요
 
-Unmanned Store Space Recognition Model? ?⑥씪 RGB ?대?吏瑜??낅젰?쇰줈 諛쏆븘 留ㅼ옣 ??吏꾩뿴 怨듦컙???몄떇?섎뒗 AI pipeline ?꾨줈?앺듃?낅땲?? DepthPro濡?depth map??留뚮뱾怨? LangSAM?쇰줈 ?먯뿰??prompt 湲곕컲 segmentation???섑뻾???? 吏꾩뿴?? 鍮?怨듦컙??遺꾩꽍?섎뒗 ?먮쫫?쇰줈 援ъ꽦?섏뼱 ?덉뒿?덈떎.
+Unmanned Store Space Recognition Model은 단일 RGB 이미지를 입력으로 받아 매장 내 진열 공간을 인식하는 AI pipeline 프로젝트입니다. DepthPro로 depth map을 만들고, LangSAM으로 자연어 prompt 기반 segmentation을 수행한 뒤, 진열대와 빈 공간을 분석하는 흐름으로 구성되어 있습니다.
 
-?ы듃?대━?ㅼ뿉?쒕뒗 AI 紐⑤뜽 ?먯껜蹂대떎 DepthPro? LangSAM???섎굹???ы쁽 媛?ν븳 pipeline?쇰줈 ?곌껐?섍퀬, Docker Compose濡??ㅽ뻾 ?섍꼍???뺣━???먯쓣 以묒떖?쇰줈 ?ㅻ챸?⑸땲??
+포트폴리오에서는 AI 모델 자체보다 DepthPro와 LangSAM을 하나의 재현 가능한 pipeline으로 연결하고, Docker Compose로 실행 환경을 정리한 점을 중심으로 설명합니다.
 
-## 臾몄젣 ?뺤쓽
+## 문제 정의
 
-臾댁씤 留ㅼ옣?먯꽌???곹뭹 蹂댁땐 ?쒖젏怨?吏꾩뿴 怨듦컙 ?곹깭瑜??뚯븙?섎뒗 ?쇱씠 以묒슂?⑸땲?? ?섏?留?蹂꾨룄 depth sensor瑜??ㅼ튂?섍굅??留ㅻ쾲 ?섎룞 labeling???섏〈?섎㈃ 鍮꾩슜怨??댁쁺 遺?댁씠 而ㅼ쭛?덈떎.
+무인 매장에서는 상품 보충 시점과 진열 공간 상태를 파악하는 일이 중요합니다. 하지만 별도 depth sensor를 설치하거나 매번 수동 labeling에 의존하면 비용과 운영 부담이 커집니다.
 
-???꾨줈?앺듃??RGB ?대?吏 湲곕컲?쇰줈 怨듦컙 ?뺣낫瑜?異붿젙?섍퀬, prompt 湲곕컲 segmentation??寃고빀??留ㅼ옣 吏꾩뿴 怨듦컙???몄떇?섎뒗 ?먮쫫??留뚮뱶????吏묒쨷?덉뒿?덈떎.
+이 프로젝트는 RGB 이미지 기반으로 공간 정보를 추정하고, prompt 기반 segmentation을 결합해 매장 진열 공간을 인식하는 흐름을 만드는 데 집중했습니다.
 
-## ?닿껐 諛⑸쾿
+## 해결 방법
 
-- DepthPro瑜??ъ슜??RGB ?대?吏?먯꽌 depth map???앹꽦?덉뒿?덈떎.
-- LangSAM???ъ슜??floor, display rack, shelf ??怨듦컙 愿???곸뿭??segmentation?덉뒿?덈떎.
-- depth ?뺣낫? mask 寃곌낵瑜?寃고빀??怨듦컙 ?꾨낫瑜??뺣━?덉뒿?덈떎.
-- `pipeline.sh`? `docker-compose.yml`濡?DepthPro stage? LangSAM stage瑜??쒖꽌?濡??ㅽ뻾?섎룄濡?援ъ꽦?덉뒿?덈떎.
-- GPU, checkpoint, ?낅젰/異쒕젰 寃쎈줈瑜??섍꼍 蹂?섏? volume mount濡?愿由ы뻽?듬땲??
+- DepthPro를 사용해 RGB 이미지에서 depth map을 생성했습니다.
+- LangSAM을 사용해 floor, display rack, shelf 등 공간 관련 영역을 segmentation했습니다.
+- depth 정보와 mask 결과를 결합해 공간 후보를 정리했습니다.
+- `pipeline.sh`와 `docker-compose.yml`로 DepthPro stage와 LangSAM stage를 순서대로 실행하도록 구성했습니다.
+- GPU, checkpoint, 입력/출력 경로를 환경 변수와 volume mount로 관리했습니다.
 
-## 二쇱슂 湲곕뒫
+## 주요 기능
 
-- RGB ?대?吏 ?낅젰 泥섎━
-- DepthPro 湲곕컲 depth map ?앹꽦
-- LangSAM 湲곕컲 prompt segmentation
-- floor/display ?곸뿭 遺꾨━
-- mask clustering怨?depth 湲곕컲 怨듦컙 ?꾨낫 ?뺣━
-- 寃곌낵 ?대?吏? JSON output ?앹꽦
-- Docker Compose 湲곕컲 2-stage pipeline ?ㅽ뻾
+- RGB 이미지 입력 처리
+- DepthPro 기반 depth map 생성
+- LangSAM 기반 prompt segmentation
+- floor/display 영역 분리
+- mask clustering과 depth 기반 공간 후보 정리
+- 결과 이미지와 JSON output 생성
+- Docker Compose 기반 2-stage pipeline 실행
 
-## 湲곗닠 ?ㅽ깮
+## 기술 스택
 
-| 援щ텇 | 湲곗닠 |
+| 구분 | 기술 |
 |---|---|
 | Depth Estimation | Apple DepthPro |
 | Segmentation | LangSAM, GroundingDINO, SAM2 |
@@ -58,45 +58,48 @@ flowchart LR
   Space --> Output[Overlay Image + JSON Result]
 ```
 
-## ?닿? ?대떦????븷
+## 내가 담당한 역할
 
-- DepthPro? LangSAM???곌껐??怨듦컙 ?몄떇 AI pipeline 援ъ꽦
-- Docker Compose 湲곕컲 stage 遺꾨━? ?ㅽ뻾 ?먮쫫 ?뺣━
-- checkpoint, ?낅젰 ?대?吏, output directory瑜??ы쁽 媛?ν븳 援ъ“濡?愿由?- segmentation mask? depth map??寃고빀?섎뒗 怨듦컙 ?몄떇 濡쒖쭅 ?뺣━
-- GPU memory, 寃쎈줈, checkpoint 以鍮?怨쇱젙?먯꽌 諛쒖깮?섎뒗 ?ㅽ뻾 臾몄젣 ???
+- DepthPro와 LangSAM을 연결한 공간 인식 AI pipeline 구성
+- Docker Compose 기반 stage 분리와 실행 흐름 정리
+- checkpoint, 입력 이미지, output directory를 재현 가능한 구조로 관리
+- segmentation mask와 depth map을 결합하는 공간 인식 로직 정리
+- GPU memory, 경로, checkpoint 준비 과정에서 발생하는 실행 문제 대응
+
 ## Demo Evidence
 
-### ?낅젰 ?대?吏
+### 입력 이미지
 
-![怨듦컙 ?몄떇 ?낅젰 ?대?吏](docs/readme-assets/before-test1.jpg)
+![공간 인식 입력 이미지](docs/readme-assets/before-test1.jpg)
 
-### 寃곌낵 ?대?吏
+### 결과 이미지
 
-![怨듦컙 ?몄떇 寃곌낵 ?대?吏](docs/readme-assets/after-test1.png)
+![공간 인식 결과 이미지](docs/readme-assets/after-test1.png)
 
-## 臾몄젣 ?닿껐 怨쇱젙
+## 문제 해결 과정
 
-### Depth sensor ?놁씠 怨듦컙 ?뺣낫 異붿젙
+### Depth sensor 없이 공간 정보 추정
 
-Depth sensor瑜?蹂꾨룄濡??먯? ?딄퀬 RGB ?대?吏?먯꽌 depth ?뺣낫瑜??산린 ?꾪빐 DepthPro瑜??ъ슜?덉뒿?덈떎. ?대? ?듯빐 segmentation 寃곌낵??嫄곕━ ?뺣낫瑜??④퍡 ?쒖슜?????덈뒗 湲곕컲??留뚮뱾?덉뒿?덈떎.
+Depth sensor를 별도로 두지 않고 RGB 이미지에서 depth 정보를 얻기 위해 DepthPro를 사용했습니다. 이를 통해 segmentation 결과에 거리 정보를 함께 활용할 수 있는 기반을 만들었습니다.
 
-### prompt 湲곕컲 segmentation
+### prompt 기반 segmentation
 
-LangSAM???쒖슜??floor, shelf, display rack 媛숈? 怨듦컙 愿??prompt瑜?湲곕컲?쇰줈 mask瑜??앹꽦?덉뒿?덈떎. ?⑥닚 媛앹껜 ?먯?蹂대떎 留ㅼ옣 援ъ“??留욌뒗 ?곸뿭 遺꾨━媛 以묒슂?덇린 ?뚮Ц??prompt? mask ?꾩쿂由??먮쫫???④퍡 ?ㅻ쨾?듬땲??
+LangSAM을 활용해 floor, shelf, display rack 같은 공간 관련 prompt를 기반으로 mask를 생성했습니다. 단순 객체 탐지보다 매장 구조에 맞는 영역 분리가 중요했기 때문에 prompt와 mask 후처리 흐름을 함께 다뤘습니다.
 
-### pipeline ?ы쁽??
-DepthPro? LangSAM? 媛곴컖 dependency? runtime 議곌굔???ㅻⅤ湲??뚮Ц???섎굹??script??紐⑤몢 ?욊린蹂대떎 Docker Compose stage濡?遺꾨━?덉뒿?덈떎. ?대? ?듯빐 ?낅젰 ?대?吏, checkpoint, output 寃쎈줈瑜?紐낇솗???섎늻怨?pipeline ?ㅽ뻾 ?먮쫫???뺣━?덉뒿?덈떎.
+### pipeline 재현성
 
-## 肄붾뱶 援ъ“?먯꽌 ?뺤씤?????덈뒗 洹쇨굅
+DepthPro와 LangSAM은 각각 dependency와 runtime 조건이 다르기 때문에 하나의 script에 모두 섞기보다 Docker Compose stage로 분리했습니다. 이를 통해 입력 이미지, checkpoint, output 경로를 명확히 나누고 pipeline 실행 흐름을 정리했습니다.
 
-- `docker-compose.yml`: DepthPro stage? LangSAM stage orchestration
-- `pipeline.sh`: ?낅젰/異쒕젰/checkpoint/image count 湲곕컲 ?ㅽ뻾 script
-- `docker/Dockerfile.depthpro`: DepthPro ?ㅽ뻾 ?섍꼍
-- `docker/Dockerfile.langsam`: LangSAM ?ㅽ뻾 ?섍꼍
-- `lang-segment-anything/final_tool/space_detection.py`: 怨듦컙 ?몄떇 main logic
-- `lang-segment-anything/final_tool/config.py`: pipeline path? environment ?ㅼ젙
+## 코드 구조에서 확인할 수 있는 근거
 
-## ?ㅽ뻾 諛⑸쾿
+- `docker-compose.yml`: DepthPro stage와 LangSAM stage orchestration
+- `pipeline.sh`: 입력/출력/checkpoint/image count 기반 실행 script
+- `docker/Dockerfile.depthpro`: DepthPro 실행 환경
+- `docker/Dockerfile.langsam`: LangSAM 실행 환경
+- `lang-segment-anything/final_tool/space_detection.py`: 공간 인식 main logic
+- `lang-segment-anything/final_tool/config.py`: pipeline path와 environment 설정
+
+## 실행 방법
 
 ```bash
 git clone https://github.com/protove/Unmanned-Store-Space-Recognition-Model.git
@@ -105,9 +108,8 @@ chmod +x pipeline.sh
 ./pipeline.sh
 ```
 
-DepthPro checkpoint? ?낅젰 ?대?吏 以鍮꾧? ?꾩슂?⑸땲??
+DepthPro checkpoint와 입력 이미지 준비가 필요합니다.
 
-## 愿??留곹겕
+## 관련 링크
 
 - GitHub: https://github.com/protove/Unmanned-Store-Space-Recognition-Model
-
