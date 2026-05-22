@@ -48,19 +48,11 @@ Unmanned Store Space Recognition Model은 단일 RGB 이미지를 입력으로 �
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  Input[RGB Store Image] --> DepthPro[Stage 1: DepthPro]
-  DepthPro --> DepthMap[Depth Map NPY]
-  Input --> LangSAM[Stage 2: LangSAM]
-  DepthMap --> LangSAM
-  LangSAM --> Masks[Floor/Display Masks]
-  Masks --> Space[Space Detection Logic]
-  DepthMap --> Space
-  Space --> Output[Overlay Image + JSON Result]
-```
+<p align="center">
+  <img src="docs/readme-assets/ai-pipeline.svg" alt="DepthPro LangSAM space recognition AI pipeline architecture diagram" width="900" />
+</p>
 
-## 내가 담당한 역할
+## 담당한 역할
 
 - DepthPro와 LangSAM을 연결한 공간 인식 AI pipeline 구성
 - Docker Compose 기반 stage 분리와 실행 흐름 정리
